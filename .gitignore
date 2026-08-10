@@ -1,0 +1,29 @@
+# Data & outputs never committed (large / reproducible from code)
+data/raw/*
+data/interim/*
+data/processed/*
+!data/**/.gitkeep
+results/figures/*
+results/tables/*
+!results/**/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# GEE / secrets
+.env
+*.private-key.json
+credentials.json
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp

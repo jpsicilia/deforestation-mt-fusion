@@ -1,0 +1,18 @@
+name: deforest-mt
+channels: [conda-forge]
+dependencies:
+  - python=3.11
+  - earthengine-api
+  - geemap
+  - geopandas
+  - rasterio
+  - shapely
+  - pyproj
+  - pandas
+  - numpy
+  - scikit-learn
+  - matplotlib
+  - pyyaml
+  - jupyterlab
+  - pytest
+  - pip
