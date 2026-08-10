@@ -1,0 +1,75 @@
+# =====================================================================
+# deforestation-mt-fusion — central configuration
+# Everything study-area-specific lives HERE. Edit this file, not the code.
+# See docs/DESIGN.md for the rationale behind every value.
+# =====================================================================
+
+study_area:
+  name: "Northwest Mato Grosso (Colniza/Aripuanã clearing front)"
+  # [West, South, East, North] in decimal degrees (EPSG:4326).
+  # Amazon-biome deforestation front; refine after inspecting alert density.
+  bounds: [-60.0, -11.0, -58.5, -9.2]
+  crs: "EPSG:4326"
+  utm_crs: "EPSG:31978"   # UTM 22S — correct zone for ~59 W (NOT 23S)
+
+gee:
+  project: "REPLACE-WITH-YOUR-GEE-PROJECT-ID"
+  export_folder: "deforestation_mt"
+
+# ---------------------------------------------------------------------
+# BITEMPORAL DESIGN (Camino A)
+# Two dry-season composites: BEFORE (t0) and AFTER (t1). Change between
+# them = deforestation for the interval. DETER comparison is restricted
+# to alerts within [t0, t1].
+# ---------------------------------------------------------------------
+bitemporal:
+  before_year: 2022        # "before" composite year (t0)
+  after_year: 2023         # "after" composite year (t1)
+  dry_months: [5, 9]       # May–September (dry season): clean, comparable
+
+labels:
+  # Verify the latest MapBiomas collection asset before running.
+  mapbiomas_asset: "projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1"
+  forest_classes: [3]                              # Forest Formation (Amazon)
+  anthropic_classes: [15, 18, 19, 39, 20, 40, 62, 41, 9, 21, 24, 30, 25]
+  class_values: {stable_forest: 0, deforestation: 1}
+
+composite:
+  s2_collection: "COPERNICUS/S2_SR_HARMONIZED"
+  s2_cloudscore: "GOOGLE/CLOUD_SCORE_PLUS/V1/S2_HARMONIZED"
+  cs_band: "cs_cdf"
+  cs_threshold: 0.60
+  s2_bands: ["B2", "B3", "B4", "B8", "B11", "B12"]
+  s2_indices: ["NDVI", "EVI", "NBR", "NDWI", "SAVI"]
+  s1_collection: "COPERNICUS/S1_GRD"
+  s1_orbit: "DESCENDING"
+  s1_bands: ["VV", "VH"]
+  glcm: {band: "VV", size: 3, features: ["contrast", "idm", "ent", "diss"]}
+
+# Hamunyela et al. (2016) spatial normalisation — the differentiator.
+# sNDVI = VI_pixel / median(neighbours >= P90) in a moving window.
+spatial_norm:
+  enabled: true
+  window_px: 25            # ~25x25 ≈ optimal at Brazilian evergreen site
+  percentile: 90           # reference = neighbours at/above this percentile
+  # bands to normalise (optical always; SAR verified per-data, see DESIGN.md)
+  optical_bands: ["NDVI", "NBR", "NDWI"]
+  sar_bands: ["VV", "VH"]
+
+sampling:
+  n_per_class: 3000
+  feature_scale: 10        # Sentinel resolution (m)
+  seed: 42
+
+deter:
+  # Comparison reference (downloaded polygons, TerraBrasilis). NOT training.
+  # Restrict to alerts whose date falls within the bitemporal window.
+  window_start: "2022-05-01"
+  window_end: "2023-09-30"
+  # DETER classes counted as clear-cut deforestation (align with our target).
+  deforestation_classes: ["DESMATAMENTO_CR", "DESMATAMENTO_VEG", "MINERACAO"]
+
+validation:
+  spatial_block_km: 10     # spatial CV block size
+  n_splits: 5
+  cloud_split: true        # money shot: metrics for cloudy vs clear pixels
