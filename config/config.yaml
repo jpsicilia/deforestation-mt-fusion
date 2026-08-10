@@ -13,7 +13,7 @@ study_area:
   utm_crs: "EPSG:31978"   # UTM 22S — correct zone for ~59 W (NOT 23S)
 
 gee:
-  project: "REPLACE-WITH-YOUR-GEE-PROJECT-ID"
+  project: "alert-result-474012-g5"
   export_folder: "deforestation_mt"
 
 # ---------------------------------------------------------------------
@@ -73,3 +73,4 @@ validation:
   spatial_block_km: 10     # spatial CV block size
   n_splits: 5
   cloud_split: true        # money shot: metrics for cloudy vs clear pixels
+
