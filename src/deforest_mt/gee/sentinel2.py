@@ -22,23 +22,24 @@ def _dry_range(year: int, months: Sequence[int]) -> tuple[ee.Date, ee.Date]:
     end = ee.Date.fromYMD(year, m1, 1).advance(1, "month")
     return start, end
 
-
 def _scale_and_index(img: ee.Image, indices: Sequence[str]) -> ee.Image:
     """Scale one S2 scene to reflectance (0..1) and append vegetation indices."""
-    img = img.divide(10000)
+    scaled = img.divide(10000)
     b = {
-        "BLUE": img.select("B2"), "GREEN": img.select("B3"),
-        "RED": img.select("B4"), "NIR": img.select("B8"),
-        "SWIR2": img.select("B12"),
+        "BLUE": scaled.select("B2"), "GREEN": scaled.select("B3"),
+        "RED": scaled.select("B4"), "NIR": scaled.select("B8"),
+        "SWIR2": scaled.select("B12"),
     }
     catalog = {
-        "NDVI": img.normalizedDifference(["B8", "B4"]).rename("NDVI"),
-        "NBR": img.normalizedDifference(["B8", "B12"]).rename("NBR"),
-        "NDWI": img.normalizedDifference(["B3", "B8"]).rename("NDWI"),
-        "EVI": img.expression("2.5*(NIR-RED)/(NIR+6*RED-7.5*BLUE+1)", b).rename("EVI"),
-        "SAVI": img.expression("1.5*(NIR-RED)/(NIR+RED+0.5)", b).rename("SAVI"),
+        "NDVI": scaled.normalizedDifference(["B8", "B4"]).rename("NDVI"),
+        "NBR": scaled.normalizedDifference(["B8", "B12"]).rename("NBR"),
+        "NDWI": scaled.normalizedDifference(["B3", "B8"]).rename("NDWI"),
+        "EVI": scaled.expression("2.5*(NIR-RED)/(NIR+6*RED-7.5*BLUE+1)", b).rename("EVI"),
+        "SAVI": scaled.expression("1.5*(NIR-RED)/(NIR+RED+0.5)", b).rename("SAVI"),
     }
-    return img.addBands([catalog[name] for name in indices])
+    out = scaled.addBands([catalog[name] for name in indices])
+    # preserve acquisition time so the temporal slope regression can read it
+    return out.copyProperties(img, ["system:time_start"])
 
 
 def s2_series(
@@ -75,7 +76,7 @@ def s2_series(
 
     def _prep(img: ee.Image) -> ee.Image:
         masked = img.updateMask(img.select(cs_band).gte(cs_threshold)).select(bands)
-        return _scale_and_index(masked, indices).clip(aoi)
+        return ee.Image(_scale_and_index(masked, indices)).clip(aoi)
 
     return (
         ee.ImageCollection(collection)
