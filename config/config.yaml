@@ -17,15 +17,13 @@ gee:
   export_folder: "deforestation_mt"
 
 # ---------------------------------------------------------------------
-# BITEMPORAL DESIGN (Camino A)
-# Two dry-season composites: BEFORE (t0) and AFTER (t1). Change between
-# them = deforestation for the interval. DETER comparison is restricted
-# to alerts within [t0, t1].
+# Two dry-season SERIES: BEFORE (t0) and AFTER (t1). Temporal features from
+# each series describe the change. DETER comparison restricted to [t0, t1].
 # ---------------------------------------------------------------------
 bitemporal:
   before_year: 2022        # "before" composite year (t0)
   after_year: 2023         # "after" composite year (t1)
-  dry_months: [5, 9]       # May–September (dry season): clean, comparable
+  dry_months: [6, 8]       # jun-ago (dry season): clean, comparable
 
 labels:
   # Verify the latest MapBiomas collection asset before running.
@@ -64,8 +62,8 @@ sampling:
 deter:
   # Comparison reference (downloaded polygons, TerraBrasilis). NOT training.
   # Restrict to alerts whose date falls within the bitemporal window.
-  window_start: "2022-05-01"
-  window_end: "2023-09-30"
+  window_start: "2022-06-01"
+  window_end: "2023-08-31"
   # DETER classes counted as clear-cut deforestation (align with our target).
   deforestation_classes: ["DESMATAMENTO_CR", "DESMATAMENTO_VEG", "MINERACAO"]
 
