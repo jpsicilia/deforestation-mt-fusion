@@ -27,3 +27,5 @@ credentials.json
 .idea/
 .vscode/
 *.swp
+.pytest_cache/
+*.egg-info/
