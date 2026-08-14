@@ -31,6 +31,7 @@ labels:
   forest_classes: [3]                              # Forest Formation (Amazon)
   anthropic_classes: [15, 18, 19, 39, 20, 40, 62, 41, 9, 21, 24, 30, 25]
   class_values: {stable_forest: 0, deforestation: 1}
+  erosion_px: 1                                    # erode 1 MapBiomas pixel (drop ambiguous borders)
 
 composite:
   s2_collection: "COPERNICUS/S2_SR_HARMONIZED"
@@ -55,10 +56,10 @@ spatial_norm:
   sar_bands: ["VV", "VH"]
 
 sampling:
-  n_per_class: 3000
-  feature_scale: 10        # Sentinel resolution (m)
+  n_per_class: 10000       # generous (381k deforestation px available); learning curve decides final
+  feature_scale: 10
   seed: 42
-
+  n_batches: 4             # split the export into N batches so GEE doesn't time out
 deter:
   # Comparison reference (downloaded polygons, TerraBrasilis). NOT training.
   # Restrict to alerts whose date falls within the bitemporal window.
