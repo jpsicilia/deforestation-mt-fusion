@@ -1,25 +1,24 @@
 """Hamunyela et al. (2016) spatial normalisation — the project's differentiator.
 
-WHY (answers the drought/false-positive problem):
-Climatic effects like drought act at REGIONAL scale (a pixel and its neighbours
-fall together), while deforestation acts LOCALLY (only the focal pixel falls).
-Dividing a pixel by the median of its healthy neighbours therefore CANCELS the
-regional signal (ratio ~ 1) and AMPLIFIES the local one (ratio well below 1).
+sVI = VI_pixel / median(neighbours >= P90) in a moving window. High percentile =
+reference is undisturbed forest, so regional drought cancels (~1) and local
+deforestation drops (<1). Window ~25x25 at the Brazilian evergreen site.
 
-FORMULA (Hamunyela 2016, Eq. 1):
-    sVI = VI_pixel / VI_median
-where VI_median is the median of neighbouring pixels whose values are AT OR
-ABOVE the 90th percentile in a moving window. The high percentile ensures the
-reference is computed from undisturbed (forest) pixels, not from already-cleared
-ones -- otherwise the disturbance would be smoothed away. Optimal window at the
-Brazilian evergreen site was ~25x25 px.
-
-Shimizu did NOT use this; combining it with an RF fusion model is the novel bit.
-Applied to each composite/feature separately, to optical and (verified per data) SAR.
+Two fixes over the first version:
+1. skipMasked=False on the neighbourhood median, so the median of healthy
+   neighbours is assigned to the focal pixel even when the focal pixel is below
+   its own P90 (i.e. masked). Without this, most pixels returned NaN.
+2. SAR bands arrive in dB (logarithmic). Hamunyela's ratio assumes a linear
+   quantity, so for SAR we convert dB -> linear power (10^(dB/10)) BEFORE
+   normalising, then take the ratio. Optical indices (already linear/positive)
+   are normalised directly.
 """
 from __future__ import annotations
 
 import ee
+
+# bands that arrive in dB and must be linearised before the ratio
+_SAR_BANDS = {"VV", "VH", "VV_VH_ratio"}
 
 
 def spatial_normalise(
@@ -30,32 +29,31 @@ def spatial_normalise(
 ) -> ee.Image:
     """Spatially normalise one band (Hamunyela 2016, Eq. 1).
 
-    Args:
-        img: image containing `band`.
-        band: band to normalise (e.g. 'NDVI', 'VV').
-        window_px: moving-window size in pixels (square neighbourhood).
-        percentile: reference percentile (e.g. 90) — neighbours at/above this
-            define the "healthy" reference.
-
-    Returns:
-        Single-band ee.Image '<band>_snorm' = pixel / median(neighbours >= P).
+    Optical: ratio on the value directly. SAR (dB): dB->linear, then ratio.
+    Returns single-band ee.Image '<band>_snorm'.
     """
     kernel = ee.Kernel.square(radius=window_px // 2, units="pixels")
     src = img.select(band)
 
-    # 1. the P-th percentile of the neighbourhood (the "healthy forest" threshold)
+    # SAR is in dB (logarithmic): convert to linear power before the ratio
+    if band in _SAR_BANDS:
+        src = ee.Image(10.0).pow(src.divide(10.0)).rename(band)
+
+    # 1. neighbourhood P-th percentile (healthy-forest threshold); align band name
     p_thresh = src.reduceNeighborhood(
         reducer=ee.Reducer.percentile([percentile]),
         kernel=kernel,
-    )
+    ).rename(band)
 
-    # 2. median of ONLY the neighbours at/above that percentile
+    # 2. median of neighbours >= threshold; skipMasked=False so the focal pixel
+    #    receives the healthy-neighbour median even when it is itself masked
     healthy = src.updateMask(src.gte(p_thresh))
     vi_median = healthy.reduceNeighborhood(
         reducer=ee.Reducer.median(),
         kernel=kernel,
-    )
+        skipMasked=False,
+    ).rename(band)
 
-    # 3. divide focal pixel by the healthy-neighbour median
+    # 3. ratio: focal value / healthy-neighbour median (adimensional)
     snorm = src.divide(vi_median).rename(f"{band}_snorm")
     return snorm
